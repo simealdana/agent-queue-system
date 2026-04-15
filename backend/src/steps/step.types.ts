@@ -7,6 +7,7 @@ export interface StepOutputMap {
   'schedule-next': { eventId: string; scheduledAt: string; interviewType: string; panelSize: number; notificationsSent: boolean };
   'human-review': Record<string, unknown>;
   'external-approval': Record<string, unknown>;
+  'simulate-failure': { recovered: boolean; message: string; resolvedAt: string };
 }
 
 export type StepName = keyof StepOutputMap;

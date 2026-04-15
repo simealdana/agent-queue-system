@@ -29,6 +29,13 @@ const TEMPLATES: Record<string, string[]> = {
     'external-approval',
     'schedule-next',
   ],
+  'error-recovery': [
+    'check-calendar',
+    'update-crm',
+    'simulate-failure',
+    'generate-summary',
+    'send-followup',
+  ],
 };
 
 @Controller('api/workflows')

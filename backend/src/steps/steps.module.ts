@@ -8,6 +8,7 @@ import { sendFollowupHandler } from './handlers/send-followup.handler';
 import { scheduleNextHandler } from './handlers/schedule-next.handler';
 import { humanReviewHandler } from './handlers/human-review.handler';
 import { externalApprovalHandler } from './handlers/external-approval.handler';
+import { simulateFailureHandler } from './handlers/simulate-failure.handler';
 
 @Module({
   controllers: [StepsController],
@@ -25,5 +26,6 @@ export class StepsModule implements OnModuleInit {
     this.registry.register('schedule-next', scheduleNextHandler);
     this.registry.register('human-review', humanReviewHandler);
     this.registry.register('external-approval', externalApprovalHandler);
+    this.registry.register('simulate-failure', simulateFailureHandler);
   }
 }

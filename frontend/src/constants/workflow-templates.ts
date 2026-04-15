@@ -28,4 +28,11 @@ export const WORKFLOW_TEMPLATES: WorkflowTemplate[] = [
     badge: 'Both',
     badgeColor: 'text-cyan-400 bg-cyan-500/10',
   },
+  {
+    name: 'Error Recovery Demo',
+    template: 'error-recovery',
+    description: 'Simulates a fatal error — resume or restart to recover',
+    badge: 'Crash Recovery',
+    badgeColor: 'text-red-400 bg-red-500/10',
+  },
 ];

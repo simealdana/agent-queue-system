@@ -6,6 +6,7 @@ export const STEP_LABELS: Record<string, string> = {
   'external-approval': 'External Approval',
   'send-followup': 'Send Follow-up Email',
   'schedule-next': 'Schedule Next Round',
+  'simulate-failure': 'Simulate Failure',
 };
 
 export const STEP_DESCRIPTIONS: Record<string, string> = {
@@ -16,4 +17,5 @@ export const STEP_DESCRIPTIONS: Record<string, string> = {
   'send-followup': 'Dispatching follow-up email to candidate',
   'external-approval': 'Waiting for external approval via shared link',
   'schedule-next': 'Booking next interview round',
+  'simulate-failure': 'Simulating external API failure for demo',
 };
