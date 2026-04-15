@@ -6,20 +6,38 @@ Built with NestJS + SQLite (WAL mode) + React + WebSocket.
 
 ![SilkChart Dashboard](docs/screenshot.png)
 
+## Prerequisites
+
+- **Node.js** >= 18 (tested on v22)
+- **npm** >= 9
+- No database setup needed — SQLite is embedded via `better-sqlite3` (compiled on `npm install`)
+- No environment variables needed — everything works with defaults
+- No Docker required
+
 ## Quick Start
 
 ```bash
-npm run install:all && npm install
+git clone git@github.com:simealdana/agent-queue-system.git
+cd agent-queue-system
+
+# Install root + backend + frontend dependencies
+npm install && npm run install:all
+
+# Start backend (port 3000) and frontend (port 5173) with hot-reload
 npm run dev
 ```
 
 Open http://localhost:5173 — click **New Workflow** to create a pipeline and watch steps execute in real-time.
+
+> **Migrations run automatically** on startup. The backend creates `data/silkchart.db` and applies all schema migrations via the `MigrationRunner` in `DatabaseModule.onModuleInit()`. No manual migration step needed.
 
 ### Run Tests
 
 ```bash
 cd backend && npm test    # 15 tests, ~5s
 ```
+
+Tests use an isolated in-memory database — they don't touch the dev database.
 
 ### Trigger a Workflow via API
 
@@ -30,6 +48,27 @@ curl -X POST http://localhost:3000/api/workflows/run \
 ```
 
 The workflow appears live in the frontend via WebSocket — no refresh needed.
+
+### Project Structure
+
+```
+agent-queue-system/
+├── backend/          # NestJS API + workflow engine
+│   ├── src/
+│   │   ├── database/     # SQLite connection, migrations
+│   │   ├── workflow/      # Service, repository, controllers, gateway
+│   │   ├── steps/         # Step handlers (plugin system)
+│   │   └── shared/        # Utils (backoff, sleep)
+│   └── test/             # E2E tests
+├── frontend/         # React + Vite
+│   └── src/
+│       ├── components/   # UI components
+│       ├── pages/        # Route pages
+│       ├── hooks/        # React Query + WebSocket hooks
+│       └── api/          # API client
+├── docs/             # Test cases, improvement proposals
+└── package.json      # Root: runs both backend + frontend
+```
 
 ## Architecture
 
