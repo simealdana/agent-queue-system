@@ -146,9 +146,22 @@ All POST/PUT endpoints validate input with `class-validator`. WebSocket pushes `
 
 ## What I'd Add With More Time
 
-- **Step timeout** — Per-step deadline with automatic failure if exceeded
-- **Parallel execution** — DAG-based execution where independent steps run concurrently
-- **Idempotency keys** — Pass unique keys to external APIs so retried steps don't cause duplicate side effects
-- **Audit log** — Immutable append-only log of all state transitions
-- **Observability** — Prometheus metrics (step duration histograms, retry rates, failure rates)
-- **Authentication** — JWT auth, workflow ownership, team-based access
+Prioritized by impact for a live-interview AI agent system:
+
+### Critical for production
+
+- **Step timeout with cancellation.** A step calling an LLM or external API could hang indefinitely. During a live interview, a stuck workflow blocks the entire candidate experience. Each step needs a configurable deadline (e.g., 30s for LLM inference, 10s for CRM updates) that kills the step and either retries or fails based on the error type. Additionally, there's no way to cancel a running workflow — if an interview ends early, the agent keeps executing steps against a stale context.
+
+- **Idempotency keys for external side effects.** When retrying a `send-followup` step that calls SendGrid, the current implementation will send duplicate emails. The fix is passing a deterministic idempotency key (e.g., `{workflowId}:{stepName}:{attempt}`) to every external API call. Without this, transient retries can cause real-world duplicates — a candidate receiving the same follow-up email three times.
+
+- **Conditional branching (DAG execution).** Steps are strictly sequential. In practice, "check calendar" and "update CRM" are independent and could run in parallel. More importantly, some steps should be conditional: if the AI summary has low confidence, skip the auto-followup and route to human review instead. This requires modeling the step graph as a DAG with conditional edges rather than a flat array.
+
+### Important for operations
+
+- **Structured observability.** No metrics, no structured logging, no distributed tracing. In production you need: step duration histograms (to detect LLM latency regressions), retry rate by step (to identify flaky integrations), and workflow completion rate by template. Prometheus + Grafana or OpenTelemetry, depending on the existing infrastructure.
+
+- **Webhook notifications.** External systems (Slack, ATS platforms) need to know when a workflow completes or fails. Currently the only notification channel is the WebSocket, which requires an active browser session. A webhook system with configurable URLs per event type would enable integration with any external tool.
+
+### Necessary for multi-tenancy
+
+- **Authentication and workflow ownership.** No auth layer exists. In production, each recruiter or hiring team would own their workflows. JWT-based auth with RBAC (role-based access control) to prevent one team from viewing or modifying another's workflows. This also enables per-tenant rate limiting and audit trails.
