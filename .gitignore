@@ -1,0 +1,10 @@
+node_modules/
+dist/
+build/
+*.db
+*.db-wal
+*.db-shm
+data/
+.env
+.env.local
+.DS_Store
