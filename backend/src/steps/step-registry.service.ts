@@ -20,4 +20,8 @@ export class StepRegistry {
   has(name: string): boolean {
     return this.handlers.has(name);
   }
+
+  getAll(): string[] {
+    return Array.from(this.handlers.keys());
+  }
 }

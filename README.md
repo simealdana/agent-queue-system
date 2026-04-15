@@ -1,149 +1,154 @@
 # SilkChart Workflow Engine
 
-A crash-resilient workflow engine for AI agent task execution. Built with NestJS, React, SQLite, and WebSocket for real-time step-by-step visibility.
+Crash-resilient workflow engine for AI agent task execution. Survives process crashes and resumes without re-executing completed steps.
+
+Built with NestJS + SQLite (WAL mode) + React + WebSocket.
+
+![SilkChart Dashboard](docs/screenshot.png)
 
 ## Quick Start
 
 ```bash
-# Install dependencies
-npm run install:all
-npm install
-
-# Start both backend (port 3000) and frontend (port 5173)
+npm run install:all && npm install
 npm run dev
 ```
 
-Open http://localhost:5173 — click "New Workflow" to create an interview follow-up pipeline and watch the steps execute in real-time.
+Open http://localhost:5173 — click **New Workflow** to create a pipeline and watch steps execute in real-time.
 
 ### Run Tests
 
 ```bash
-cd backend
-npm test
+cd backend && npm test    # 15 tests, ~5s
 ```
+
+### Trigger a Workflow via API
+
+```bash
+curl -X POST http://localhost:3000/api/workflows/run \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Post-Interview Follow-up", "template": "default"}'
+```
+
+The workflow appears live in the frontend via WebSocket — no refresh needed.
 
 ## Architecture
 
 ```
-┌─────────────────┐    WebSocket     ┌──────────────────┐
-│   React + RQ    │◄────────────────►│     NestJS        │
-│   (Vite)        │    REST API      │  Workflow Engine   │
-└─────────────────┘◄────────────────►│                    │
-                                     │  ┌──────────────┐  │
-                                     │  │  StepRegistry │  │
-                                     │  └──────┬───────┘  │
-                                     │         │          │
-                                     │  ┌──────▼───────┐  │
-                                     │  │   SQLite WAL  │  │
-                                     │  │  (crash-safe) │  │
-                                     │  └──────────────┘  │
-                                     └────────────────────┘
+┌─────────────────┐    WebSocket     ┌──────────────────────┐
+│   React + RQ    │◄────────────────►│       NestJS          │
+│   (Vite)        │    REST API      │   Workflow Engine      │
+└─────────────────┘◄────────────────►│                        │
+                                     │  ┌──────────────────┐  │
+                                     │  │  StepRegistry     │  │
+                                     │  │  (plugin system)  │  │
+                                     │  └──────┬───────────┘  │
+                                     │         │              │
+                                     │  ┌──────▼───────────┐  │
+                                     │  │  SQLite WAL       │  │
+                                     │  │  (crash-safe txn) │  │
+                                     │  └──────────────────┘  │
+                                     └────────────────────────┘
 ```
+
+### Why SQLite with WAL mode instead of a JSON file?
+
+The assignment allows a JSON file, but SQLite with WAL gives us **atomic transactions** — the core durability guarantee. The method `completeStep()` marks the step as completed AND advances `workflow.current_step` in a single synchronous transaction. If the process crashes mid-transaction, neither write persists. This is impossible to guarantee with JSON file writes.
+
+### Why a plugin-based step system?
+
+Each step handler is a pure async function `(StepContext) → StepResult`. New steps are added by registering a function — no changes to the engine. Step handlers opt-in to retryability by throwing `TransientError`; any other error is fatal and stops the workflow immediately. This is safer than the inverse pattern where unknown errors might retry forever.
 
 ## Data Model
 
-### `workflows` table — The workflow state machine
+### `workflows` table
 
 | Column | Type | Purpose |
 |--------|------|---------|
-| `id` | TEXT PK | UUIDv4 identifier |
-| `name` | TEXT | Human-readable label (e.g. "Post-Interview Follow-up") |
-| `status` | TEXT | `pending` → `running` → `completed` or `failed` |
-| `current_step` | INTEGER | **Resume pointer** — index of the next step to execute |
-| `total_steps` | INTEGER | Total step count for progress calculation |
+| `id` | TEXT PK | UUIDv4 |
+| `name` | TEXT | Human-readable label |
+| `status` | TEXT | `pending` → `running` → `completed` / `failed` / `waiting` |
+| `current_step` | INTEGER | **Resume pointer** — next step to execute |
+| `total_steps` | INTEGER | For progress calculation |
 | `context` | TEXT (JSON) | Accumulated output from all completed steps |
-| `error` | TEXT | Error message if the workflow failed |
-| `created_at` | TEXT | ISO-8601 timestamp |
-| `updated_at` | TEXT | ISO-8601 timestamp |
+| `error` | TEXT | Error message if failed |
 
-### `workflow_steps` table — Individual step tracking
+### `workflow_steps` table
 
 | Column | Type | Purpose |
 |--------|------|---------|
-| `id` | TEXT PK | UUIDv4 identifier |
+| `id` | TEXT PK | UUIDv4 |
 | `workflow_id` | TEXT FK | Parent workflow (CASCADE delete) |
-| `step_index` | INTEGER | Execution order (0-based, UNIQUE with workflow_id) |
-| `name` | TEXT | Step handler name (e.g. "check-calendar") |
-| `status` | TEXT | `pending` → `running` → `completed` or `failed` |
+| `step_index` | INTEGER | Execution order (UNIQUE with workflow_id) |
+| `name` | TEXT | Step handler name |
+| `status` | TEXT | `pending` → `running` → `completed` / `failed` / `waiting` |
 | `result` | TEXT (JSON) | Step output data |
-| `error` | TEXT | Error message if the step failed |
-| `attempt` | INTEGER | Current retry attempt number |
-| `max_retries` | INTEGER | Maximum retry attempts for transient errors |
-| `started_at` | TEXT | When execution began |
-| `completed_at` | TEXT | When execution finished |
+| `attempt` | INTEGER | Current retry attempt |
+| `max_retries` | INTEGER | Max retry budget |
 | `duration_ms` | INTEGER | Wall-clock execution time |
 
 ### Why this structure
 
-**1. `current_step` as a resume pointer.** After a crash, the engine reads `current_step` and starts the execution loop from there. Steps before that index are guaranteed completed because `completeStep()` advances `current_step` in the same atomic SQLite transaction that marks the step as completed.
+**`current_step` as a resume pointer.** After a crash, the engine reads `current_step` and starts from there. Steps before that index are guaranteed completed because `completeStep()` advances `current_step` in the same atomic transaction that marks the step done.
 
-**2. `context` as accumulated JSON on the workflow row.** Each step reads context from prior steps and writes its output back. Storing this on the workflow row means resume is O(1) — we don't need to scan all completed steps to reconstruct the pipeline state.
+**`context` as accumulated JSON.** Each step reads prior outputs and writes its own. Stored on the workflow row so resume is O(1) — no need to scan all steps to reconstruct state. The `AccumulatedContext` type maps each step name to its known output shape for compile-time safety.
 
-**3. SQLite with WAL mode (not a JSON file).** The assignment allows a JSON file, but SQLite with WAL gives us atomic transactions — the core durability guarantee. If the process crashes between "mark step completed" and "advance current_step," neither write persists. This is impossible to guarantee with JSON file writes.
-
-**4. `TransientError` as an explicit error class.** Step handlers opt-in to retryability by throwing `TransientError`. Any other error is fatal and stops the workflow immediately. This is safer than the inverse pattern where unknown errors might retry forever.
-
-**5. Per-step `attempt` + `max_retries`.** Retry budget is tracked at the step level, so transient failures can be retried with exponential backoff + jitter without affecting other steps.
-
-## Crash Recovery — How It Works
-
-The crash-safety invariant is simple:
-
-> `completeStep()` marks the step as `completed` **and** advances `workflow.current_step` in a **single synchronous SQLite transaction**.
-
-Because better-sqlite3 is synchronous and SQLite transactions are atomic (WAL mode), either both writes land on disk or neither does. There is no partial-commit window.
-
-**On startup**, `WorkflowService.onModuleInit()` queries for workflows with `status = 'running'` (interrupted by a crash) and resumes each one. The execution loop naturally skips completed steps by checking `step.status === 'completed'`.
-
-**On manual resume** (for failed workflows), the failed step is reset to `pending` and the execution loop restarts from `current_step`, again skipping any completed steps.
+**Per-step `attempt` + `max_retries`.** Retry budget is tracked per step. Transient failures retry with exponential backoff + jitter (`min(30s, 500ms × 2^attempt) × random`) without affecting other steps.
 
 ## Error Handling
 
 | Error Type | Behavior |
 |-----------|----------|
-| `TransientError` | Retry with exponential backoff + full jitter (base 500ms, cap 30s). Up to `max_retries` attempts. |
-| Any other `Error` | **Fatal.** Step marked failed, workflow marked failed. User can resume after fixing the issue. |
+| `TransientError` | Retry with exponential backoff + full jitter. Up to `max_retries` attempts. |
+| `WaitForApproval` | Pause workflow. Dashboard approval or external link (token-based). |
+| Any other `Error` | Fatal. Stop immediately, mark workflow as failed. Resumable. |
 
-## Mock Steps
+## Testing
 
-The demo workflow simulates a post-interview AI agent pipeline:
+15 tests across 8 categories — see [docs/test-cases.md](docs/test-cases.md) for detailed test specifications.
 
-1. **Check Calendar** — Verify interviewer availability (returns available slots)
-2. **Update CRM** — Update candidate status to "interviewing"
-3. **Generate Summary** — AI-generate interview summary with sentiment analysis
-4. **Send Follow-up** — Send follow-up email via SendGrid
-5. **Schedule Next** — Schedule next interview round
-
-Each step simulates 500-2000ms of async work and returns realistic mock data.
+| Category | Tests | What it proves |
+|----------|-------|----------------|
+| Resume after crash | 1 | Completed steps are never re-executed |
+| Transient retry | 2 | Exponential backoff works, retries exhaust correctly |
+| Fatal error | 1 | Non-transient errors stop immediately, no retry |
+| Dashboard approval | 2 | Workflow pauses and resumes after human approval |
+| External approval | 3 | Token generation, token-based approval, invalid token rejection |
+| Restart from scratch | 2 | Full reset + re-execution, context cleared |
+| Context accumulation | 1 | Each step receives all prior outputs |
+| Migration runner | 3 | Schema versioning, idempotency, rollback |
 
 ## API
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `POST` | `/api/workflows` | Create and start a new workflow |
+| `POST` | `/api/workflows` | Create workflow (stays pending) |
+| `POST` | `/api/workflows/run` | Create and start in one call |
 | `GET` | `/api/workflows` | List all workflows with steps |
-| `GET` | `/api/workflows/:id` | Get a single workflow with steps |
+| `GET` | `/api/workflows/:id` | Get single workflow |
+| `POST` | `/api/workflows/:id/start` | Start a pending workflow |
 | `POST` | `/api/workflows/:id/resume` | Resume a failed workflow |
+| `POST` | `/api/workflows/:id/restart` | Re-run from scratch |
+| `POST` | `/api/workflows/:id/approve` | Approve waiting step |
+| `GET` | `/api/steps` | List available step handlers |
 
-## Real-time Updates
-
-The backend pushes `workflow:update` and `step:update` events via socket.io. The React frontend uses these to invalidate React Query caches, giving instant UI updates as each step completes.
+All POST/PUT endpoints validate input with `class-validator`. WebSocket pushes `workflow:update` events for real-time UI updates.
 
 ## Tech Stack
 
-- **Backend:** NestJS, TypeScript, better-sqlite3, socket.io
-- **Frontend:** React 18, Vite, TanStack React Query, socket.io-client, Tailwind CSS
-- **Testing:** Jest, direct database assertions
+| Layer | Choice | Why |
+|-------|--------|-----|
+| Backend | NestJS + TypeScript | Decorator-based DI, module system, lifecycle hooks for crash recovery |
+| Database | better-sqlite3 (WAL) | Synchronous atomic transactions — the crash-safety primitive |
+| Frontend | React 18 + Vite | Fast HMR, minimal config |
+| Server state | TanStack React Query | Cache invalidation on WebSocket events |
+| Real-time | socket.io | Bidirectional, auto-reconnect |
+| Styling | Tailwind CSS | Utility-first, terminal/dev-tool aesthetic |
 
 ## What I'd Add With More Time
 
-- **Workflow templates** — Define reusable step sequences as templates (JSON schema)
-- **Step timeout** — Per-step timeout with automatic failure if exceeded
-- **Parallel step execution** — DAG-based execution where independent steps run concurrently
+- **Step timeout** — Per-step deadline with automatic failure if exceeded
+- **Parallel execution** — DAG-based execution where independent steps run concurrently
 - **Idempotency keys** — Pass unique keys to external APIs so retried steps don't cause duplicate side effects
-- **Audit log** — Immutable append-only log of all state transitions for debugging
-- **Authentication + multi-tenancy** — JWT auth, workflow ownership, team-based access
-- **Metrics + observability** — Prometheus metrics (step duration histograms, retry rates, failure rates)
-- **Webhook notifications** — Notify external systems when workflows complete or fail
-- **Rate limiting** — Per-step rate limits for external API calls
-- **UI enhancements** — Step result JSON viewer, workflow search/filter, dark/light theme toggle
+- **Audit log** — Immutable append-only log of all state transitions
+- **Observability** — Prometheus metrics (step duration histograms, retry rates, failure rates)
+- **Authentication** — JWT auth, workflow ownership, team-based access

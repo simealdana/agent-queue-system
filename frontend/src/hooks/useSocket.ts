@@ -1,12 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { io, Socket } from 'socket.io-client';
+import type { Socket } from 'socket.io-client';
+import { io } from 'socket.io-client';
 
-/**
- * Connects a single socket.io client and invalidates React Query caches
- * whenever the server pushes workflow/step updates.
- */
-export function useSocket(): void {
+export const useSocket = (): void => {
   const queryClient = useQueryClient();
   const socketRef = useRef<Socket | null>(null);
 
@@ -17,16 +14,15 @@ export function useSocket(): void {
 
     socketRef.current = socket;
 
-    socket.on('workflow:update', () => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] });
-    });
+    const invalidate = (): void => {
+      void queryClient.invalidateQueries({ queryKey: ['workflows'] });
+    };
 
-    socket.on('step:update', () => {
-      queryClient.invalidateQueries({ queryKey: ['workflows'] });
-    });
+    socket.on('workflow:update', invalidate);
+    socket.on('step:update', invalidate);
 
-    return () => {
+    return (): void => {
       socket.disconnect();
     };
   }, [queryClient]);
-}
+};

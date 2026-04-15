@@ -1,12 +1,14 @@
-import { StepHandler } from '../step.types';
+import { StepHandler, TransientError } from '../step.types';
 import { sleep, randomBetween } from '../../shared/utils';
 
 export const sendFollowupHandler: StepHandler = async (ctx) => {
   await sleep(randomBetween(700, 1300));
 
-  const summary = ctx.accumulated['generate-summary'] as
-    | Record<string, unknown>
-    | undefined;
+  if (Math.random() < 0.25) {
+    throw new TransientError('Email provider throttled — SMTP connection reset');
+  }
+
+  const summary = ctx.accumulated['generate-summary'];
 
   return {
     data: {

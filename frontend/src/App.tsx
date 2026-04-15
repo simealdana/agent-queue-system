@@ -1,13 +1,16 @@
+import type { ReactElement } from 'react';
+import { Outlet } from 'react-router';
 import { useSocket } from './hooks/useSocket';
 import { Layout } from './components/Layout';
-import { WorkflowList } from './components/WorkflowList';
 
-export default function App() {
+const App = (): ReactElement => {
   useSocket();
 
   return (
     <Layout>
-      <WorkflowList />
+      <Outlet />
     </Layout>
   );
-}
+};
+
+export default App;

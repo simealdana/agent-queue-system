@@ -1,12 +1,16 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { StepRegistry } from './step-registry.service';
+import { StepsController } from './steps.controller';
 import { checkCalendarHandler } from './handlers/check-calendar.handler';
 import { updateCrmHandler } from './handlers/update-crm.handler';
 import { generateSummaryHandler } from './handlers/generate-summary.handler';
 import { sendFollowupHandler } from './handlers/send-followup.handler';
 import { scheduleNextHandler } from './handlers/schedule-next.handler';
+import { humanReviewHandler } from './handlers/human-review.handler';
+import { externalApprovalHandler } from './handlers/external-approval.handler';
 
 @Module({
+  controllers: [StepsController],
   providers: [StepRegistry],
   exports: [StepRegistry],
 })
@@ -19,5 +23,7 @@ export class StepsModule implements OnModuleInit {
     this.registry.register('generate-summary', generateSummaryHandler);
     this.registry.register('send-followup', sendFollowupHandler);
     this.registry.register('schedule-next', scheduleNextHandler);
+    this.registry.register('human-review', humanReviewHandler);
+    this.registry.register('external-approval', externalApprovalHandler);
   }
 }

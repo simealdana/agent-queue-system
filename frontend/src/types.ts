@@ -1,5 +1,5 @@
-export type WorkflowStatus = 'pending' | 'running' | 'completed' | 'failed';
-export type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+export type WorkflowStatus = 'pending' | 'running' | 'completed' | 'failed' | 'waiting';
+export type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'waiting';
 
 export interface StepDto {
   id: string;
@@ -27,12 +27,3 @@ export interface WorkflowDto {
   updatedAt: string;
   steps: StepDto[];
 }
-
-/** Human-readable labels for step handler names */
-export const STEP_LABELS: Record<string, string> = {
-  'check-calendar': 'Check Calendar',
-  'update-crm': 'Update CRM',
-  'generate-summary': 'Generate Summary',
-  'send-followup': 'Send Follow-up',
-  'schedule-next': 'Schedule Next Round',
-};

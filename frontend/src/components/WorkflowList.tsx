@@ -1,55 +1,107 @@
+import { useState } from 'react';
+import type { ReactElement } from 'react';
+import { Link } from 'react-router';
 import { useWorkflows } from '../hooks/useWorkflows';
 import { WorkflowCard } from './WorkflowCard';
 import { CreateWorkflowButton } from './CreateWorkflowButton';
+import { StatsBar } from './StatsBar';
+import type { StatusFilter } from './StatsBar';
+import { ROUTES } from '../constants/routes';
 
-export function WorkflowList() {
+export const WorkflowList = (): ReactElement => {
   const { data: workflows, isLoading, error } = useWorkflows();
+  const [filter, setFilter] = useState<StatusFilter>('all');
+
+  const filtered = workflows
+    ? workflows.filter((w) => filter === 'all' || w.status === filter)
+    : [];
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-xl font-semibold text-white">Workflows</h2>
-          <p className="text-sm text-gray-500 mt-1">
-            AI agent task execution pipelines
-          </p>
-        </div>
-        <CreateWorkflowButton />
-      </div>
-
-      {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-        </div>
-      )}
-
-      {error && (
-        <div className="bg-red-900/20 border border-red-800 rounded-lg p-4 text-sm text-red-400">
-          Failed to load workflows: {error.message}
-        </div>
-      )}
-
-      {workflows && workflows.length === 0 && (
-        <div className="text-center py-20">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-800 flex items-center justify-center">
-            <svg className="w-8 h-8 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-            </svg>
-          </div>
-          <p className="text-gray-500 text-sm">No workflows yet</p>
-          <p className="text-gray-600 text-xs mt-1">
-            Create one to see the AI agent in action
-          </p>
-        </div>
-      )}
-
+      <ListHeader />
       {workflows && workflows.length > 0 && (
-        <div className="space-y-4">
-          {workflows.map((w) => (
+        <div className="mb-5">
+          <StatsBar workflows={workflows} filter={filter} onFilterChange={setFilter} />
+        </div>
+      )}
+      {isLoading && <LoadingSpinner />}
+      {error && <ErrorMessage message={error.message} />}
+      {workflows && workflows.length === 0 && <EmptyState />}
+      {workflows && workflows.length > 0 && filtered.length === 0 && (
+        <div className="text-center py-16">
+          <p className="text-sm text-gray-600 font-mono">// no {filter} workflows found</p>
+        </div>
+      )}
+      {filtered.length > 0 && (
+        <div className="space-y-3" role="feed" aria-label="Workflow list" aria-live="polite">
+          {filtered.map((w) => (
             <WorkflowCard key={w.id} workflow={w} />
           ))}
         </div>
       )}
     </div>
   );
-}
+};
+
+const ListHeader = (): ReactElement => (
+  <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 mb-6">
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <span className="text-emerald-500/60 text-sm">$</span>
+        <h2 className="text-base text-gray-300">workflows</h2>
+        <span className="text-gray-700 text-sm">--list</span>
+      </div>
+      <p className="text-xs text-gray-700 ml-6">AI agent task execution pipelines</p>
+    </div>
+    <div className="flex items-center gap-2">
+      <Link
+        to={ROUTES.WORKFLOW_NEW}
+        className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-mono bg-surface-2 hover:bg-surface-3 active:bg-surface-4 border border-border text-gray-500 hover:text-gray-300 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-accent focus-visible:outline-none"
+      >
+        <svg aria-hidden="true" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        Create
+      </Link>
+      <CreateWorkflowButton />
+    </div>
+  </div>
+);
+
+const LoadingSpinner = (): ReactElement => (
+  <div className="flex items-center gap-2 py-24 justify-center text-sm text-gray-600 font-mono">
+    <svg aria-label="Loading workflows" className="w-4 h-4 text-emerald-500 animate-spin-slow" fill="none" viewBox="0 0 24 24">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+    loading workflows...
+  </div>
+);
+
+const ErrorMessage = ({ message }: { message: string }): ReactElement => (
+  <div role="alert" className="terminal-window">
+    <div className="px-4 py-3 text-sm font-mono">
+      <span className="text-red-500">error:</span>
+      <span className="text-red-400/80 ml-2">{message}</span>
+    </div>
+  </div>
+);
+
+const EmptyState = (): ReactElement => (
+  <div className="terminal-window">
+    <div className="terminal-titlebar">
+      <span className="terminal-dot bg-red-500/40" />
+      <span className="terminal-dot bg-yellow-500/40" />
+      <span className="terminal-dot bg-emerald-500/40" />
+      <span className="text-xs text-gray-600 ml-1">terminal</span>
+    </div>
+    <div className="px-5 py-10 text-center">
+      <p className="text-sm text-gray-500 font-mono mb-1">
+        <span className="text-emerald-500/60">$</span> No workflows yet
+      </p>
+      <p className="text-xs text-gray-700 font-mono">
+        Create a workflow to see the AI agent execute steps in real-time
+      </p>
+    </div>
+  </div>
+);

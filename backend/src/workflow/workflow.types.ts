@@ -1,5 +1,5 @@
-export type WorkflowStatus = 'pending' | 'running' | 'completed' | 'failed';
-export type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped';
+export type WorkflowStatus = 'pending' | 'running' | 'completed' | 'failed' | 'waiting';
+export type StepStatus = 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'waiting';
 
 /** Raw database row for a workflow */
 export interface WorkflowRow {

@@ -1,8 +1,14 @@
-import { StepHandler } from '../step.types';
+import { StepHandler, TransientError } from '../step.types';
 import { sleep, randomBetween } from '../../shared/utils';
 
 export const generateSummaryHandler: StepHandler = async () => {
-  await sleep(randomBetween(1000, 2000));
+  // Slower step — simulates LLM inference
+  await sleep(randomBetween(1500, 3000));
+
+  // 20% chance: model overloaded
+  if (Math.random() < 0.2) {
+    throw new TransientError('LLM inference timeout — model capacity exceeded');
+  }
 
   return {
     data: {
@@ -13,7 +19,6 @@ export const generateSummaryHandler: StepHandler = async () => {
       sentiment: 'positive',
       keyTopics: ['system-design', 'distributed-systems', 'problem-solving'],
       confidence: 0.92,
-      model: 'gpt-4o',
     },
   };
 };

@@ -3,7 +3,7 @@ import Database from 'better-sqlite3';
 import * as path from 'path';
 import * as fs from 'fs';
 
-export const DATABASE_TOKEN = 'DATABASE_CONNECTION';
+export const DATABASE_TOKEN = Symbol('DATABASE_CONNECTION');
 
 export const databaseProvider: Provider = {
   provide: DATABASE_TOKEN,

@@ -1,8 +1,13 @@
-import { StepHandler } from '../step.types';
+import { StepHandler, TransientError } from '../step.types';
 import { sleep, randomBetween } from '../../shared/utils';
 
-export const updateCrmHandler: StepHandler = async (ctx) => {
-  await sleep(randomBetween(800, 1500));
+export const updateCrmHandler: StepHandler = async () => {
+  await sleep(randomBetween(600, 1200));
+
+  // 40% chance: CRM API rate-limited or timeout — most likely step to retry
+  if (Math.random() < 0.4) {
+    throw new TransientError('CRM API rate limit exceeded — 429 Too Many Requests');
+  }
 
   return {
     data: {

@@ -3,16 +3,105 @@
 @tailwind utilities;
 
 @layer base {
+  * {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
   body {
-    @apply bg-gray-950 text-gray-100;
+    @apply bg-surface-0 text-gray-400 antialiased;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  ::selection {
+    @apply bg-emerald-500/20 text-emerald-200;
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-surface-4 rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-600;
   }
 }
 
-@keyframes step-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+@keyframes pulse-ring {
+  0% { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2.2); opacity: 0; }
 }
 
-.animate-step-pulse {
-  animation: step-pulse 1.5s ease-in-out infinite;
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes terminal-glow {
+  0%, 100% { text-shadow: 0 0 4px rgba(34, 197, 94, 0.3); }
+  50% { text-shadow: 0 0 8px rgba(34, 197, 94, 0.5); }
+}
+
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+.animate-pulse-ring {
+  animation: pulse-ring 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-spin-slow {
+  animation: spin-slow 2s linear infinite;
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}
+
+.animate-terminal-glow {
+  animation: terminal-glow 2s ease-in-out infinite;
+}
+
+/* Terminal window chrome */
+.terminal-window {
+  @apply bg-surface-1 border border-border rounded-md overflow-hidden;
+}
+
+.terminal-titlebar {
+  @apply flex items-center gap-2 px-3 py-2 bg-surface-2/50 border-b border-border;
+}
+
+.terminal-dot {
+  @apply w-2.5 h-2.5 rounded-full;
+}
+
+/* Code-style text */
+.code-text {
+  @apply font-mono text-xs leading-relaxed;
+}
+
+/* Log line styling */
+.log-line {
+  @apply flex items-center gap-3 px-4 py-2 text-sm font-mono;
+  @apply hover:bg-surface-2/50 transition-colors;
+  min-height: 36px;
+}
+
+.log-line-number {
+  @apply text-gray-700 select-none w-6 text-right shrink-0 tabular-nums text-xs;
+}
+
+.log-prefix {
+  @apply text-emerald-500/60 select-none shrink-0;
 }

@@ -1,13 +1,15 @@
-import { StepHandler } from '../step.types';
+import { StepHandler, TransientError } from '../step.types';
 import { sleep, randomBetween } from '../../shared/utils';
 
 export const scheduleNextHandler: StepHandler = async (ctx) => {
   await sleep(randomBetween(500, 1000));
 
-  const calendar = ctx.accumulated['check-calendar'] as
-    | Record<string, unknown>
-    | undefined;
-  const slots = (calendar?.slots as string[]) || [];
+  if (Math.random() < 0.1) {
+    throw new TransientError('Scheduling conflict — slot was just booked');
+  }
+
+  const calendar = ctx.accumulated['check-calendar'];
+  const slots = calendar?.slots ?? [];
 
   return {
     data: {
