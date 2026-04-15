@@ -11,6 +11,11 @@ export default defineConfig({
       '/socket.io': {
         target: 'http://localhost:3000',
         ws: true,
+        configure: (proxy) => {
+          proxy.on('error', () => {
+            // Suppress EPIPE errors from stale WebSocket connections
+          });
+        },
       },
     },
   },
