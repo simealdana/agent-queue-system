@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Param, Header } from '@nestjs/common';
+import { Controller, Get, Post, Param, Header, NotFoundException } from '@nestjs/common';
 import { WorkflowService } from './workflow.service';
 import { ApprovalTemplateService } from './approval-template.service';
 
@@ -23,8 +23,11 @@ export class ApprovalController {
         pendingData,
         status: 'pending',
       });
-    } catch {
-      return this.template.render({ status: 'not_found' });
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        return this.template.render({ status: 'not_found' });
+      }
+      return this.template.render({ status: 'already_approved' });
     }
   }
 
@@ -41,7 +44,10 @@ export class ApprovalController {
         workflowId: workflow.id,
         status: 'approved',
       });
-    } catch {
+    } catch (err) {
+      if (err instanceof NotFoundException) {
+        return this.template.render({ status: 'not_found' });
+      }
       return this.template.render({ status: 'already_approved' });
     }
   }
